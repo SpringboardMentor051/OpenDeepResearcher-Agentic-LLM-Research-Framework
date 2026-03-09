@@ -1,72 +1,44 @@
-#Simple LLM Integration with LM Studio
+import json
+import os
 
 from openai import OpenAI
 
-class LLMPlanner:
-    
-    def __init__(self, base_url="http://localhost:1234/v1", model="mistralai/ministral-3-3b"):
-        
+
+class Planner:
+    def __init__(self):
         self.client = OpenAI(
-            base_url=base_url,
-            api_key="lm-studio"
+            api_key=os.getenv("OPENAI_API_KEY", "lm-studio"),
+            base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1"),
         )
-        self.model = model
-    
-    def ask(self, system_prompt, query, temperature=0.7, max_tokens=500):
-        
+        self.model = os.getenv("OPENAI_MODEL", "qwen/qwen3.5-9b")
+
+    def plan(self, topic: str) -> list[str]:
+        """Break one topic into 3-4 focused web-search queries."""
+        system = (
+            "Return only JSON in this format: "
+            '{"queries":["q1","q2","q3"]}. Keep queries short.'
+        )
         try:
-            response = self.client.chat.completions.create(
+            res = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query}
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": f"Topic: {topic}"},
                 ],
-                temperature=temperature,
-                max_tokens=max_tokens
+                temperature=0.2,
+                max_tokens=200,
             )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Error: {str(e)}"
+            content = res.choices[0].message.content or ""
+            queries = json.loads(content).get("queries", [])
+            queries = [q.strip() for q in queries if isinstance(q, str) and q.strip()]
+            if queries:
+                return queries[:4]
+        except Exception:
+            pass
 
-
-# Example usage
-if __name__ == "__main__":
-    # Create the planner instance
-    planner = LLMPlanner()
-    
-    # Define system prompt for AI researcher
-    system_prompt = """You are an expert AI researcher with deep knowledge in machine learning, data science, and artificial intelligence. 
-    
-Your responsibilities:
-- Analyze complex research questions thoroughly
-- Provide evidence-based, accurate information
-- Structure your responses in a clear, organized manner
-- Explain technical concepts in both simple and detailed ways
-- Identify gaps in current knowledge and suggest future research directions
-- Cite relevant methodologies and best practices
-
-Response Structure:
-1. **Summary**: Brief overview of the answer (2-3 sentences)
-2. **Key Points**: Main findings or concepts (bullet points)
-3. **Explanation**: Detailed explanation of each key point
-4. **Implications**: Practical applications and relevance
-5. **References**: Related concepts or areas for further study
-
-Always maintain scientific rigor and provide balanced perspectives."""
-
-    # Interactive mode with prompt + query separation
-    print("\n" + "=" * 60)
-    print("AI Researcher Mode - Knowledge Q&A")
-    print("=" * 60)
-    
-    while True:
-        query = input("\n❓ Your research question: ")
-        if query.lower() in ['quit', 'exit', 'q']:
-            print("Goodbye!")
-            break
-        
-        if query.strip():
-            print("\n🔍 Researching...")
-            response = planner.ask(system_prompt, query)
-            print(f"\n🤖 Response:\n{response}")
-            print("-" * 60)
+        return [
+            f"{topic} overview",
+            f"{topic} latest trends",
+            f"{topic} key challenges",
+            f"{topic} real-world applications",
+        ]
