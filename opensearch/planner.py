@@ -1,16 +1,16 @@
 import json
 import os
-
 from openai import OpenAI
-
 
 class Planner:
     def __init__(self):
+        # Updated to point to Ollama running locally in Colab
         self.client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY", "lm-studio"),
-            base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1"),
+            api_key=os.getenv("OPENAI_API_KEY", "ollama"),
+            base_url=os.getenv("OPENAI_BASE_URL", "http://localhost:11434/v1"),
         )
-        self.model = os.getenv("OPENAI_MODEL", "qwen/qwen3.5-9b")
+        # Updated to the Qwen model we pulled
+        self.model = os.getenv("OPENAI_MODEL", "llama3")
 
     def plan(self, topic: str) -> list[str]:
         """Break one topic into 3-4 focused web-search queries."""
@@ -33,7 +33,8 @@ class Planner:
             queries = [q.strip() for q in queries if isinstance(q, str) and q.strip()]
             if queries:
                 return queries[:4]
-        except Exception:
+        except Exception as e:
+            print(f"Planner Error: {e}")
             pass
 
         return [
