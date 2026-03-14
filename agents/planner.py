@@ -13,7 +13,7 @@ class Planner:
 
     def create_plan(self, user_query: str) -> list:
         prompt = f"""
-Break the following research topic into 5 clear sub-questions.
+Break the following research topic into 4 clear sub-questions.
 
 Topic: {user_query}
 
@@ -37,4 +37,4 @@ Return only a numbered list.
             if line.strip()
         ]
 
-        return sub_questions
+        return sub_questions[:4]

@@ -10,7 +10,7 @@ class Writer:
         )
         self.model = model_name
 
-    def summarize(self, sub_question: str, search_content: str) -> str:
+    def summarize(self, sub_question: list, search_content: str) -> str:
         prompt = f"""
 You are a research writer.
 
@@ -26,7 +26,7 @@ Write a clear, structured summary answering the sub-question.
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": "You write structured research summaries within 200 tokens."},
+                {"role": "system", "content": "You write structured research summaries."},
                 {"role": "user", "content": prompt}
             ]
         )
