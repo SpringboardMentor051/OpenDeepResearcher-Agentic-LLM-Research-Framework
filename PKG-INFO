@@ -1,6 +1,15 @@
-# OpenDeepResearcher - Phase 2 Core Agent Development
+Metadata-Version: 2.4
+Name: opendeepresearcher
+Version: 0.1.0
+Summary: Agentic LLM research framework bootstrap
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: requests>=2.32.3
 
-This phase implements the core multi-agent workflow with LangGraph.
+# OpenDeepResearcher - Phase 1 Bootstrap
+
+This phase establishes baseline infrastructure so your agents and tools can communicate.
 
 ## 1) Prepare Python Environment (Windows PowerShell)
 
@@ -53,37 +62,14 @@ If no key is present, the flow still runs with a stub search result so you can v
 
 If your LLM endpoint is offline, `LLM_STUB_ON_ERROR=true` returns deterministic stub text so the full flow still validates.
 
-## 4) Run Agentic Research Flow
+## 4) Run Stubbed Research Flow
 
 ```powershell
 Copy-Item .env.example .env
 python -m opendeepresearcher.main "latest open-source agentic research frameworks"
 ```
 
-Expected output: JSON with `topic`, `subquestions`, `evidence_by_question`, `evidence`, and `draft`.
-The pipeline uses LangGraph nodes in this order:
-- Planner Agent: topic -> focused sub-questions
-- Searcher Agent: sub-questions -> Tavily web evidence
-- Writer Agent: evidence -> structured synthesis
-Each run also saves output to `results/latest.json` by default.
-
-Optional custom output path:
-
-```powershell
-python -m opendeepresearcher.main "your topic" --output results/my_run.json
-```
-
-Direct question with Tavily web search followed by LLM synthesis:
-
-```powershell
-python -m opendeepresearcher.main --ask "What are the top 3 trends in agentic AI right now?"
-```
-
-Interactive chat with Tavily web search and LLM synthesis on every turn:
-
-```powershell
-python -m opendeepresearcher.main --chat
-```
+Expected output: JSON with `topic`, `plan`, `evidence`, and `draft`.
 
 ## Project Layout
 
@@ -92,5 +78,5 @@ python -m opendeepresearcher.main --chat
 - `src/opendeepresearcher/llm.py` - LLM client adapter
 - `src/opendeepresearcher/search.py` - Tavily client
 - `src/opendeepresearcher/agents.py` - planner/retriever/writer agents
-- `src/opendeepresearcher/flow.py` - LangGraph orchestration graph
+- `src/opendeepresearcher/flow.py` - orchestration flow
 - `docs/ARCHITECTURE.md` - data flow and phase architecture
