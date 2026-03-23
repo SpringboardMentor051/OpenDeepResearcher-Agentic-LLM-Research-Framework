@@ -35,7 +35,7 @@ class Writer:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
-                max_tokens=600,
+                max_tokens=2500,
             )
             return res.choices[0].message.content or "No summary generated."
         except Exception as e:
@@ -43,7 +43,9 @@ class Writer:
             # Lightweight fallback if model is unavailable.
             lines = [f"Summary for: {topic}", "", "Key points:"]
             for item in search_results[:3]:
-                lines.append(f"- {item.get('title', 'Untitled')}: {item.get('content', '')[:180]}")
+                # Grab the clean snippet, no length limit!
+                text = item.get('content', 'No content available.')
+                lines.append(f"- {item.get('title', 'Untitled')}: {text}")
             lines.append("")
             lines.append("Sources:")
             for item in search_results[:3]:
