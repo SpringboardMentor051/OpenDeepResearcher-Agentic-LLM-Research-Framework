@@ -1,0 +1,6 @@
+langchain
+langchain-ollama
+tavily-python
+python-dotenv
+halo
+langgraph
