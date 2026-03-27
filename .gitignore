@@ -1,17 +1,5 @@
-# environment variables
+venv/
 .env
-
-# python cache
 __pycache__/
 *.pyc
-
-# virtual env
-venv/
-
-# IDE
-.vscode/
-.idea/
-
-# system
-.DS_Store
-Thumbs.db
+milestone3/memory/chat_store.json

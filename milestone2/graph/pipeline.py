@@ -1,6 +1,11 @@
-from agents.planner import planner_agent
-from agents.searcher import search_agent
-from agents.writer import writer_agent
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from milestone2.agents.planner import planner_agent
+from milestone2.agents.searcher import search_agent
+from milestone2.agents.writer import writer_agent
 import json
 import re
 
