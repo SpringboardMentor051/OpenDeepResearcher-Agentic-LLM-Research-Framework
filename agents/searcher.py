@@ -16,6 +16,18 @@ class Searcher:
 
         self.client = TavilyClient(api_key=api_key)
 
+
+    def format_results(self,results):
+        formatted = ""
+        for r in results:
+            formatted += f"""
+    Title: {r.get('title')}
+    Content: {r.get('content')}
+    URL: {r.get('url')}
+    ---
+    """
+        return formatted
+
     def search(self, query: str, max_results: int = 3) -> List[Dict]:
         try:
             response = self.client.search(
@@ -26,7 +38,8 @@ class Searcher:
         except Exception as e:
             raise RuntimeError(f"Tavily search failed: {e}")
 
-        return response.get("results", [])
+        return response.get("results")
+    
 if __name__=="__main__":
     from planner import Planner
     prompt="Snapdragon 888 smartphone performance camera battery features"
