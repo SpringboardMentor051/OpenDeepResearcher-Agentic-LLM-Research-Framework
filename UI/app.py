@@ -75,8 +75,12 @@ if user_input:
 
     with st.chat_message("assistant"):
         with st.spinner("Researching..."):
-            response = run_research(user_input, messages)
+            try:
+                response = run_research(user_input, messages)
+                
+            except Exception as e:
+                response = f"❌ Error: {str(e)}"
             st.markdown(response)
-
+   
     messages.append({"role": "assistant", "content": response})
 

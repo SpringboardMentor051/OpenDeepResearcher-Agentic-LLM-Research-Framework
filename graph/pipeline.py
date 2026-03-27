@@ -24,12 +24,25 @@ class ResearchState(TypedDict):
 # ----------------------
 def planner_node(state: ResearchState):
     planner = Planner(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
+    # windowed memory
+    recent_history = state["history"][-6:]
+    history_text = "\n".join([
+        f"{msg['role']}: {msg['content']}"
+        for msg in recent_history
+    ])
+
+    enriched_query = f"""
+Conversation Context:
+{history_text}
+
+Current User Query:
+{state["query"]}
+"""
 
     return {
-        "sub_questions": planner.create_plan(state["query"]),
+        "sub_questions": planner.create_plan(enriched_query),
         "partial_summaries": []
     }
-
 
 # ----------------------
 # ROUTER
@@ -63,12 +76,30 @@ def format_results(results, max_chars=500):
 
 
 def searcher_node(state: ResearchState):
-    try:
-        searcher = Searcher()
-        results = searcher.search(state["current_question"])
-        formatted = format_results(results)
-    except Exception as e:
-        formatted = f"Search failed: {str(e)}"
+    searcher = Searcher()
+
+    last_user_msgs = [
+        msg["content"]
+        for msg in state["history"]
+        if msg["role"] == "user"
+    ]
+
+    context = last_user_msgs[-2:] if last_user_msgs else []
+
+    enriched_query = f"""
+Context:
+{" ".join(context)}
+
+Question:
+{state["current_question"]}
+"""
+
+    results = searcher.search(enriched_query)
+
+    if not results:
+        raise ValueError(f"No results for: {state['current_question']}")
+
+    formatted = format_results(results)
 
     return {
         "search_results": formatted
@@ -76,7 +107,7 @@ def searcher_node(state: ResearchState):
 
 
 # ----------------------
-# WRITER (PARTIAL — NO MEMORY)
+# WRITER 
 # ----------------------
 def writer_node(state: ResearchState):
     writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
@@ -93,14 +124,18 @@ def writer_node(state: ResearchState):
 
 
 # ----------------------
-# FINAL WRITER (MEMORY HERE)
+# FINAL WRITER
 # ----------------------
 def final_writer_node(state: ResearchState):
     writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
 
     combined = "\n\n".join(state["partial_summaries"])
-
-    final_summary=writer.summarize(state["query"],state["partial_summaries"],state["history"])
+    final_summary = writer.summarize(
+        state["query"],
+        combined,
+        state["history"],
+        final=True   # ✅ IMPORTANT
+    )
     return {
         "final_report": final_summary
     }
