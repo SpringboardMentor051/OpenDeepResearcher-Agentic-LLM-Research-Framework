@@ -5,45 +5,71 @@ client = OpenAI(
     api_key="lm-studio"
 )
 
-def write_report(topic, research_data):
+def write_report(topic, research_data, history):
 
-    print("\n Writer Agent generating research report...\n")
+    print("\n Writer Agent generating research report with memory...\n")
 
+    #  Convert history into proper message format (LIMITED history already passed)
+    messages = [
+        {"role": "system", "content": "You are an expert research report writer."}
+    ]
+
+    # Add previous conversation (already limited from app.py)
+    for msg in history:
+        messages.append({
+            "role": msg["role"],
+            "content": msg["content"]
+        })
+
+    # Add current prompt
     prompt = f"""
 You are an expert AI research writer.
 
-Using the research information below, generate a well-structured research report.
+Use the conversation history to understand context.
 
-Topic: {topic}
+Current Topic:
+{topic}
 
-Use the following sections:
-1. Abstract
-2. Introduction
-3. Methodology
-4. Literature Review
-5.Applications
-6. Challenges
-7. Future Improvements
-8. Conclusion
-9. References
-10.Short Explanation
+IMPORTANT RULES:
+- Use Markdown headings like ## Abstract
+- Use ## only for main sections
+- Use ### for subtopics inside sections
+- Do NOT use numbering
+- Do NOT use #### style headings
+- Leave a blank line after each heading
+- Use proper paragraphs
+
+FORMAT:
+
+## Abstract
+
+## Introduction
+
+## Methodology
+
+## Literature Review
+
+## Applications
+
+## Challenges
+
+## Future Improvements
+
+## Conclusion
+
+## Short Explanation
 
 Research Information:
 {research_data}
-
-Write a detailed report.
 """
+
+    messages.append({"role": "user", "content": prompt})
 
     response = client.chat.completions.create(
         model="qwen2.5-vl-7b-instruct",
-        messages=[
-            {"role": "system", "content": "You are an expert research report writer."},
-            {"role": "user", "content": prompt}
-        ],
+        messages=messages,   
         temperature=0.6,
-        max_tokens=1200
+        max_tokens=1500
     )
 
-    report = response.choices[0].message.content
-
-    return report
+    return response.choices[0].message.content
