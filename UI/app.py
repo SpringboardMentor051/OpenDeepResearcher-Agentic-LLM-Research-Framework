@@ -67,7 +67,7 @@ for msg in messages:
 # ----------------------
 user_input = st.chat_input("Ask anything...")
 
-if user_input:
+if user_input and user_input.strip():
     messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
