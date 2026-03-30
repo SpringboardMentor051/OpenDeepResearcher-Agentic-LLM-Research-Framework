@@ -1,9 +1,42 @@
-# OpenDeepResearcher-Agentic-LLM-Research-Framework
+# OpenDeepResearcher
 
-Welcome to OpenDeepResearcher, an open research framework designed for building and experimenting with Agentic Large Language Model (LLM) systems.
+## Overview
+This project is an AI-based research assistant.
 
-This repository is intended for submitting research implementations, experimental projects, and autonomous agent-based LLM systems.
-## For submissions:-
-### Step1:- Click on the main button
-### Step2:- Type your name in box and click on create branch
-### Step3:- Submit your code in that branch only
+## Features
+- Planner Agent
+- Searcher Agent
+- Writer Agent
+
+## Setup
+1. Clone repo
+2. Install requirements
+3. Run main.py
+
+## Run
+python main.py
+
+## Milestone 2
+
+### Features
+- Planner Agent creates sub-questions
+- Searcher Agent fetches real data using Tavily API
+- Writer Agent generates structured summary
+
+### How it works
+Input → Planner → Search → Writer → Output
+
+## Milestone 3
+
+## Final Features
+- AI Research Assistant UI (Streamlit)
+- Real-time web search using Tavily API
+- Multi-agent system (Planner, Searcher, Writer)
+- Memory system for previous queries
+- Structured research output
+
+## Activate
+.\venv\Scripts\Activate.ps1
+
+## Run
+streamlit run ui.py
