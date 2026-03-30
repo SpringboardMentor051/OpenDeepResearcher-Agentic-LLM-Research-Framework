@@ -1,96 +1,53 @@
-# OpenDeepResearcher - Phase 2 Core Agent Development
+# Streamlit Chat Interface
 
-This phase implements the core multi-agent workflow with LangGraph.
+A ChatGPT-like interface built with Streamlit for your project.
 
-## 1) Prepare Python Environment (Windows PowerShell)
+This frontend is now wired to your `infosys` backend folder.
 
-```powershell
-py -3.10 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
+## Run locally
+
+1. Create and activate your Python environment.
+2. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   pip install -r infosys/requirements.txt
+   pip install -e ./infosys
+   ```
+
+3. Start the app:
+
+   ```bash
+   streamlit run app.py
+   ```
+
+If you still see import errors, run Streamlit with the same Python used for installs:
+
+```bash
+C:/Users/shino/AppData/Local/Programs/Python/Python313/python.exe -m streamlit run app.py
 ```
 
-## 2) Configure LLM Integration
+## Customize
 
-Supported providers in this scaffold:
-- `ollama`
-- `lmstudio`
-- `openai_compatible`
+- Open `app.py`
+- The app auto-loads backend code from `infosys/src`.
+- In the sidebar, choose mode:
+   - `Quick Answer` -> calls `opendeepresearcher.main.ask()`
+   - `Deep Research` -> calls `opendeepresearcher.main.run()`
 
-### Ollama example
-- Install Ollama and run model:
-```powershell
-ollama pull qwen2.5:7b-instruct
-ollama serve
-```
-- `.env` values:
-  - `LLM_PROVIDER=ollama`
-  - `LLM_MODEL=qwen2.5:7b-instruct`
-  - `LLM_BASE_URL=http://localhost:11434`
+## Folder Linking Notes
 
-### LM Studio example
-- Start local server in LM Studio.
-- `.env` values:
-  - `LLM_PROVIDER=lmstudio`
-  - `LLM_MODEL=<your-loaded-instruct-model>`
-  - `LLM_BASE_URL=http://localhost:1234`
+- Keep this structure:
 
-### OpenAI-compatible API example
-- `.env` values:
-  - `LLM_PROVIDER=openai_compatible`
-  - `LLM_MODEL=<model-name>`
-  - `LLM_BASE_URL=<api-base-url>`
-  - `LLM_API_KEY=<api-key>`
+   ```text
+   in/
+   ├─ app.py
+   └─ infosys/
+       └─ src/opendeepresearcher/
+   ```
 
-## 3) Integrate Tavily Search
+- If import fails in the app, reinstall editable package:
 
-1. Sign up at Tavily and create an API key.
-2. Copy `.env.example` to `.env` and set `TAVILY_API_KEY`.
-
-If no key is present, the flow still runs with a stub search result so you can verify orchestration.
-
-If your LLM endpoint is offline, `LLM_STUB_ON_ERROR=true` returns deterministic stub text so the full flow still validates.
-
-## 4) Run Agentic Research Flow
-
-```powershell
-Copy-Item .env.example .env
-python -m opendeepresearcher.main "latest open-source agentic research frameworks"
-```
-
-Expected output: JSON with `topic`, `subquestions`, `evidence_by_question`, `evidence`, and `draft`.
-The pipeline uses LangGraph nodes in this order:
-- Planner Agent: topic -> focused sub-questions
-- Searcher Agent: sub-questions -> Tavily web evidence
-- Writer Agent: evidence -> structured synthesis
-Each run also saves output to `results/latest.json` by default.
-
-Optional custom output path:
-
-```powershell
-python -m opendeepresearcher.main "your topic" --output results/my_run.json
-```
-
-Direct question with Tavily web search followed by LLM synthesis:
-
-```powershell
-python -m opendeepresearcher.main --ask "What are the top 3 trends in agentic AI right now?"
-```
-
-Interactive chat with Tavily web search and LLM synthesis on every turn:
-
-```powershell
-python -m opendeepresearcher.main --chat
-```
-
-## Project Layout
-
-- `src/opendeepresearcher/main.py` - CLI entry point
-- `src/opendeepresearcher/config.py` - env config
-- `src/opendeepresearcher/llm.py` - LLM client adapter
-- `src/opendeepresearcher/search.py` - Tavily client
-- `src/opendeepresearcher/agents.py` - planner/retriever/writer agents
-- `src/opendeepresearcher/flow.py` - LangGraph orchestration graph
-- `docs/ARCHITECTURE.md` - data flow and phase architecture
+   ```bash
+   pip install -e ./infosys
+   ```
