@@ -8,9 +8,9 @@ def run_research(query: str, history: list):
         "query": query,
         "history": history,
         "sub_questions": [],
-        "partial_summaries": []
+        "partial_summaries": [],
+        "is_followup": False   # ✅ NEW
     }
 
     result = graph.invoke(state)
-
-    return result["final_report"]  
+    return result["final_report"]

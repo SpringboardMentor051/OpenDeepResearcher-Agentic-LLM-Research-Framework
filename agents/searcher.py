@@ -29,6 +29,8 @@ class Searcher:
         return formatted
 
     def search(self, query: str, max_results: int = 3) -> List[Dict]:
+        if not query :
+            raise RuntimeError("No Query")
         try:
             response = self.client.search(
                 query=query,

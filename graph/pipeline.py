@@ -11,12 +11,50 @@ load_dotenv()
 
 class ResearchState(TypedDict):
     query: str
-    history: List[dict]   # ✅ MEMORY ADDED
+    history: List[dict]
     sub_questions: List[str]
     current_question: str
     search_results: str
     partial_summaries: List[str]
     final_report: str
+    is_followup: bool   # ✅ NEW
+
+
+# ----------------------
+# FOLLOW-UP DETECTOR
+# ----------------------
+def followup_detector_node(state: ResearchState):
+    history = state["history"]
+
+    if len(history) < 2:
+        return {"is_followup": False}
+
+    last_user_queries = [
+        msg["content"]
+        for msg in history
+        if msg["role"] == "user"
+    ]
+
+    if len(last_user_queries) < 2:
+        return {"is_followup": False}
+
+    current_query = last_user_queries[-1].lower()
+    previous_query = last_user_queries[-2].lower()
+
+    followup_keywords = [
+        "what about", "also", "advantages", "disadvantages",
+        "pros", "cons", "why", "how about", "compare", "more"
+    ]
+
+    keyword_flag = any(k in current_query for k in followup_keywords)
+
+    overlap = len(set(current_query.split()) & set(previous_query.split()))
+    similarity_score = overlap / max(len(current_query.split()), 1)
+
+    if similarity_score > 0.4 or keyword_flag:
+        return {"is_followup": True}
+
+    return {"is_followup": False}
 
 
 # ----------------------
@@ -24,7 +62,7 @@ class ResearchState(TypedDict):
 # ----------------------
 def planner_node(state: ResearchState):
     planner = Planner(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
-    # windowed memory
+
     recent_history = state["history"][-6:]
     history_text = "\n".join([
         f"{msg['role']}: {msg['content']}"
@@ -43,6 +81,7 @@ Current User Query:
         "sub_questions": planner.create_plan(enriched_query),
         "partial_summaries": []
     }
+
 
 # ----------------------
 # ROUTER
@@ -66,11 +105,14 @@ def format_results(results, max_chars=500):
     for r in results[:3]:
         content = r.get("content", "")
         title = r.get("title", "")
+        url = r.get("url", "")
 
         if not content:
             continue
 
-        chunks.append(f"Title: {title}\nContent: {content[:max_chars]}")
+        chunks.append(
+            f"Title: {title}\nContent: {content[:max_chars]}\nURL: {url}"
+        )
 
     return "\n\n".join(chunks)
 
@@ -107,14 +149,16 @@ Question:
 
 
 # ----------------------
-# WRITER 
+# WRITER
 # ----------------------
 def writer_node(state: ResearchState):
     writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
-    # ✅ Windowed memory
- 
-
-    summary = writer.summarize(state["current_question"],state["search_results"],state["history"])
+    summary = writer.summarize(
+        state["current_question"],
+        state["search_results"],
+        state["history"],
+        is_followup=state.get("is_followup", False)
+    )
 
     return {
         "partial_summaries": state["partial_summaries"] + [
@@ -130,12 +174,15 @@ def final_writer_node(state: ResearchState):
     writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
 
     combined = "\n\n".join(state["partial_summaries"])
+
     final_summary = writer.summarize(
         state["query"],
         combined,
         state["history"],
-        final=True   # ✅ IMPORTANT
+        is_followup=state.get("is_followup", False),
+        final=True
     )
+
     return {
         "final_report": final_summary
     }
@@ -147,14 +194,16 @@ def final_writer_node(state: ResearchState):
 def build_graph():
     builder = StateGraph(ResearchState)
 
+    builder.add_node("followup_detector", followup_detector_node)  # ✅ NEW
     builder.add_node("planner", planner_node)
     builder.add_node("router", router_node)
     builder.add_node("searcher", searcher_node)
     builder.add_node("writer", writer_node)
     builder.add_node("final_writer", final_writer_node)
 
-    builder.set_entry_point("planner")
+    builder.set_entry_point("followup_detector")  # ✅ UPDATED
 
+    builder.add_edge("followup_detector", "planner")
     builder.add_edge("planner", "router")
 
     builder.add_conditional_edges(
@@ -164,7 +213,6 @@ def build_graph():
 
     builder.add_edge("searcher", "writer")
     builder.add_edge("writer", "router")
-
     builder.add_edge("final_writer", END)
 
     return builder.compile()
