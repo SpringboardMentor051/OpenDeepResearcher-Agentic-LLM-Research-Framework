@@ -12,28 +12,45 @@ class Planner:
         )
         self.model = model_name
 
-    def create_plan(self, user_query: str) -> list:
+    def create_plan(self, user_query: str,history:list) -> list:
+        recent_history=history[-6:]
+        history_text = "\n".join([
+            f"{msg['role']}: {msg['content']}"
+            for msg in recent_history
+        ])
 
         prompt = f"""
-You are an expert research planner.
+You are a research planning expert.
 
-Your task is to break the user's query into EXACTLY 4 high-quality research questions.
+Your job is to break the user's query into 4 focused research questions that together fully explore the topic.
 
-User Query:
+USER QUERY:
 {user_query}
 
-INSTRUCTIONS:
-- Understand the intent deeply
-- If query is broad → cover different dimensions
-- If query is specific → break into deeper aspects
-- Avoid repetition
-- Avoid generic questions
+CONVERSATION HISTORY:
+{history_text}
 
-STRICT OUTPUT RULE:
-Return ONLY a valid JSON list of 4 strings.
+TASK:
+
+1. Determine whether the query is:
+   - A NEW topic → create broad coverage questions
+   - A FOLLOW-UP → extend or deepen previous discussion
+
+2. Generate 4 questions that:
+   - Cover distinct aspects (no overlap)
+   - Are specific and answerable
+   - Drive meaningful research (not definitions unless necessary)
+
+3. For follow-ups:
+   - Build on previous context
+   - Avoid repeating already explored ideas
+   - Go deeper, not wider
+
+OUTPUT FORMAT:
+Return ONLY a JSON list of 4 strings.
 
 Example:
-["Question 1", "Question 2", "Question 3", "Question 4"]
+["...", "...", "...", "..."]
 """
 
         # ---------------- API CALL ----------------

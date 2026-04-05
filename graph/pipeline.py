@@ -1,4 +1,5 @@
 from typing import TypedDict, List
+from openai import OpenAI
 from agents.planner import Planner
 from agents.searcher import Searcher
 from agents.writer import Writer
@@ -18,44 +19,38 @@ class ResearchState(TypedDict):
     partial_summaries: List[str]
     final_report: str
     is_followup: bool   # ✅ NEW
+def detect_followup_llm(state:ResearchState):
+    recent_history = state["history"][-6:]
+    history_text = "\n".join([
+        f"{msg['role']}: {msg['content']}"
+        for msg in recent_history
+    ])
 
+    prompt = f"""
+Previous query:
+{history_text}
 
-# ----------------------
-# FOLLOW-UP DETECTOR
-# ----------------------
-def followup_detector_node(state: ResearchState):
-    history = state["history"]
+New query:
+{state["query"]}
 
-    if len(history) < 2:
-        return {"is_followup": False}
+Does the new query depend on the previous query to be understood?
 
-    last_user_queries = [
-        msg["content"]
-        for msg in history
-        if msg["role"] == "user"
-    ]
+Answer ONLY: YES or NO
+"""
 
-    if len(last_user_queries) < 2:
-        return {"is_followup": False}
+    response = OpenAI(api_key=os.getenv("API_KEY"),base_url=os.getenv("BASE_URL")).chat.completions.create(
+        model=os.getenv("MODEL_NAME"),
+        messages=[
+                {"role": "system", "content": "You answer only YES or NO."},
+                {"role": "user", "content": prompt}
+            ]
+        
+    )
+    text = response.choices[0].message.content.strip().upper()
 
-    current_query = last_user_queries[-1].lower()
-    previous_query = last_user_queries[-2].lower()
+    is_followup = text == "YES"
 
-    followup_keywords = [
-        "what about", "also", "advantages", "disadvantages",
-        "pros", "cons", "why", "how about", "compare", "more"
-    ]
-
-    keyword_flag = any(k in current_query for k in followup_keywords)
-
-    overlap = len(set(current_query.split()) & set(previous_query.split()))
-    similarity_score = overlap / max(len(current_query.split()), 1)
-
-    if similarity_score > 0.4 or keyword_flag:
-        return {"is_followup": True}
-
-    return {"is_followup": False}
-
+    return {"is_followup": is_followup}
 
 # ----------------------
 # PLANNER
@@ -78,7 +73,7 @@ Current User Query:
 """
 
     return {
-        "sub_questions": planner.create_plan(enriched_query),
+        "sub_questions": planner.create_plan(state["query"],state["history"]),
         "partial_summaries": []
     }
 
@@ -99,7 +94,7 @@ def router_node(state: ResearchState):
 # ----------------------
 # SEARCHER
 # ----------------------
-def format_results(results, max_chars=500):
+def format_results(results, max_chars=800):
     chunks = []
 
     for r in results[:3]:
@@ -157,7 +152,6 @@ def writer_node(state: ResearchState):
         state["current_question"],
         state["search_results"],
         state["history"],
-        is_followup=state.get("is_followup", False)
     )
 
     return {
@@ -179,7 +173,7 @@ def final_writer_node(state: ResearchState):
         state["query"],
         combined,
         state["history"],
-        is_followup=state.get("is_followup", False),
+        state["is_followup"],
         final=True
     )
 
@@ -194,16 +188,17 @@ def final_writer_node(state: ResearchState):
 def build_graph():
     builder = StateGraph(ResearchState)
 
-    builder.add_node("followup_detector", followup_detector_node)  # ✅ NEW
+    builder.add_node("followup_detector",detect_followup_llm)
     builder.add_node("planner", planner_node)
     builder.add_node("router", router_node)
     builder.add_node("searcher", searcher_node)
     builder.add_node("writer", writer_node)
     builder.add_node("final_writer", final_writer_node)
-
-    builder.set_entry_point("followup_detector")  # ✅ UPDATED
-
-    builder.add_edge("followup_detector", "planner")
+    
+    builder.set_entry_point("followup_detector")
+    builder.add_edge(
+    "followup_detector", "planner" 
+)
     builder.add_edge("planner", "router")
 
     builder.add_conditional_edges(

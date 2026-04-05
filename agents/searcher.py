@@ -22,13 +22,12 @@ class Searcher:
         for r in results:
             formatted += f"""
     Title: {r.get('title')}
-    Content: {r.get('content')}
+    Content: {r.get('content')[:800]}
     URL: {r.get('url')}
     ---
     """
         return formatted
-
-    def search(self, query: str, max_results: int = 3) -> List[Dict]:
+    def search(self, query: str, max_results: int = 5) -> List[Dict]:
         if not query :
             raise RuntimeError("No Query")
         try:
@@ -39,7 +38,6 @@ class Searcher:
             )
         except Exception as e:
             raise RuntimeError(f"Tavily search failed: {e}")
-
         return response.get("results")
     
 if __name__=="__main__":

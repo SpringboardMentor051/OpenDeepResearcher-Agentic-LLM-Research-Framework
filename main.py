@@ -13,4 +13,11 @@ def run_research(query: str, history: list):
     }
 
     result = graph.invoke(state)
-    return result["final_report"]
+    return {
+    "final_answer": result["final_report"],
+    "steps": {
+        "planning": result.get("sub_questions", []),
+        "partials": result.get("partial_summaries", [])
+    },
+    "is_followup": result.get("is_followup", False)
+}
