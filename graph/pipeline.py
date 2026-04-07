@@ -1,10 +1,11 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, Optional
 from openai import OpenAI
 from agents.planner import Planner
 from agents.searcher import Searcher
 from agents.writer import Writer
 from langgraph.graph import StateGraph, END
 import os
+import concurrent.futures
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,200 +15,167 @@ class ResearchState(TypedDict):
     query: str
     history: List[dict]
     sub_questions: List[str]
-    current_question: str
-    search_results: str
     partial_summaries: List[str]
     final_report: str
-    is_followup: bool   # ✅ NEW
-def detect_followup_llm(state:ResearchState):
+    is_followup: bool
+    error: Optional[str]
+
+
+# ──────────────────────────────────────────
+# FOLLOW-UP DETECTOR
+# ──────────────────────────────────────────
+def detect_followup_llm(state: ResearchState) -> dict:
+    if not state["history"]:
+        return {"is_followup": False}
+
     recent_history = state["history"][-6:]
     history_text = "\n".join([
-        f"{msg['role']}: {msg['content']}"
+        f"{msg['role']}: {msg['content'][:200]}"
         for msg in recent_history
     ])
 
     prompt = f"""
-Previous query:
+Prior conversation:
 {history_text}
 
-New query:
-{state["query"]}
+New query: {state["query"]}
 
-Does the new query depend on the previous query to be understood?
+Does the new query ask about a specific aspect, benefit, detail, or follow-on of what was previously discussed?
 
 Answer ONLY: YES or NO
 """
 
-    response = OpenAI(api_key=os.getenv("API_KEY"),base_url=os.getenv("BASE_URL")).chat.completions.create(
-        model=os.getenv("MODEL_NAME"),
-        messages=[
+    try:
+        response = OpenAI(
+            api_key=os.getenv("API_KEY"),
+            base_url=os.getenv("BASE_URL")
+        ).chat.completions.create(
+            model=os.getenv("MODEL_NAME"),
+            messages=[
                 {"role": "system", "content": "You answer only YES or NO."},
                 {"role": "user", "content": prompt}
-            ]
-        
-    )
-    text = response.choices[0].message.content.strip().upper()
-
-    is_followup = text == "YES"
-
-    return {"is_followup": is_followup}
-
-# ----------------------
-# PLANNER
-# ----------------------
-def planner_node(state: ResearchState):
-    planner = Planner(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
-
-    recent_history = state["history"][-6:]
-    history_text = "\n".join([
-        f"{msg['role']}: {msg['content']}"
-        for msg in recent_history
-    ])
-
-    enriched_query = f"""
-Conversation Context:
-{history_text}
-
-Current User Query:
-{state["query"]}
-"""
-
-    return {
-        "sub_questions": planner.create_plan(state["query"],state["history"]),
-        "partial_summaries": []
-    }
-
-
-# ----------------------
-# ROUTER
-# ----------------------
-def router_node(state: ResearchState):
-    if not state["sub_questions"]:
-        return {}
-
-    return {
-        "current_question": state["sub_questions"][0],
-        "sub_questions": state["sub_questions"][1:]
-    }
-
-
-# ----------------------
-# SEARCHER
-# ----------------------
-def format_results(results, max_chars=800):
-    chunks = []
-
-    for r in results[:3]:
-        content = r.get("content", "")
-        title = r.get("title", "")
-        url = r.get("url", "")
-
-        if not content:
-            continue
-
-        chunks.append(
-            f"Title: {title}\nContent: {content[:max_chars]}\nURL: {url}"
+            ],
+            temperature=0,
+            timeout=15
         )
+        text = response.choices[0].message.content.strip().upper()
+        return {"is_followup": "YES" in text}
+    except Exception:
+        return {"is_followup": False}
 
-    return "\n\n".join(chunks)
+
+# ──────────────────────────────────────────
+# PLANNER
+# ──────────────────────────────────────────
+def planner_node(state: ResearchState) -> dict:
+    try:
+        planner = Planner(os.getenv("MODEL_NAME"), os.getenv("BASE_URL"))
+        sub_questions = planner.create_plan(
+            state["query"],
+            state["history"],
+            state["is_followup"]
+        )
+        return {
+            "sub_questions": sub_questions,
+            "partial_summaries": []
+        }
+    except Exception as e:
+        return {
+            "sub_questions": [state["query"]],
+            "partial_summaries": [],
+            "error": f"Planner error: {e}"
+        }
 
 
-def searcher_node(state: ResearchState):
+# ──────────────────────────────────────────
+# PARALLEL SEARCHER + WRITER
+# ──────────────────────────────────────────
+def _search_and_write_one(question: str, history: list, is_followup: bool) -> str:
+    """Search and write for a single sub-question. Runs in a thread."""
     searcher = Searcher()
+    writer = Writer(os.getenv("MODEL_NAME"), os.getenv("BASE_URL"))
 
-    last_user_msgs = [
-        msg["content"]
-        for msg in state["history"]
-        if msg["role"] == "user"
-    ]
+    try:
+        results = searcher.search(question)
+        formatted = searcher.format_results(results)
+    except Exception as e:
+        formatted = f"Search error: {e}"
 
-    context = last_user_msgs[-2:] if last_user_msgs else []
+    try:
+        summary = writer.summarize(
+            sub_question=question,
+            search_content=formatted,
+            history=history,
+            is_followup=is_followup,
+            final=False
+        )
+    except Exception as e:
+        summary = f"Writing error: {e}"
 
-    enriched_query = f"""
-Context:
-{" ".join(context)}
-
-Question:
-{state["current_question"]}
-"""
-
-    results = searcher.search(enriched_query)
-
-    if not results:
-        raise ValueError(f"No results for: {state['current_question']}")
-
-    formatted = format_results(results)
-
-    return {
-        "search_results": formatted
-    }
+    return f"### {question}\n{summary}"
 
 
-# ----------------------
-# WRITER
-# ----------------------
-def writer_node(state: ResearchState):
-    writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
-    summary = writer.summarize(
-        state["current_question"],
-        state["search_results"],
-        state["history"],
-    )
+def parallel_search_write_node(state: ResearchState) -> dict:
+    """Run all 4 sub-questions in parallel using ThreadPoolExecutor."""
+    questions = state["sub_questions"]
+    history = state["history"]
+    is_followup = state["is_followup"]
 
-    return {
-        "partial_summaries": state["partial_summaries"] + [
-            f"{state['current_question']}\n{summary}"
-        ]
-    }
+    partial_summaries = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(_search_and_write_one, q, history, is_followup): q
+            for q in questions
+        }
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result(timeout=90)
+                partial_summaries.append(result)
+            except Exception as e:
+                q = futures[future]
+                partial_summaries.append(f"### {q}\n[Error processing this question: {e}]")
+
+    return {"partial_summaries": partial_summaries}
 
 
-# ----------------------
+# ──────────────────────────────────────────
 # FINAL WRITER
-# ----------------------
-def final_writer_node(state: ResearchState):
-    writer = Writer(os.getenv('MODEL_NAME'), os.getenv('BASE_URL'))
+# ──────────────────────────────────────────
+def final_writer_node(state: ResearchState) -> dict:
+    try:
+        writer = Writer(os.getenv("MODEL_NAME"), os.getenv("BASE_URL"))
+        combined = "\n\n".join(state["partial_summaries"])
+        final_summary = writer.summarize(
+            sub_question=state["query"],
+            search_content=combined,
+            history=state["history"],
+            is_followup=state["is_followup"],
+            final=True
+        )
+        return {"final_report": final_summary}
+    except Exception as e:
+        return {
+            "final_report": f"❌ Final report generation failed: {e}\n\n"
+                            + "\n\n".join(state["partial_summaries"])
+        }
 
-    combined = "\n\n".join(state["partial_summaries"])
 
-    final_summary = writer.summarize(
-        state["query"],
-        combined,
-        state["history"],
-        state["is_followup"],
-        final=True
-    )
-
-    return {
-        "final_report": final_summary
-    }
-
-
-# ----------------------
+# ──────────────────────────────────────────
 # BUILD GRAPH
-# ----------------------
+# ──────────────────────────────────────────
 def build_graph():
     builder = StateGraph(ResearchState)
 
-    builder.add_node("followup_detector",detect_followup_llm)
+    builder.add_node("followup_detector", detect_followup_llm)
     builder.add_node("planner", planner_node)
-    builder.add_node("router", router_node)
-    builder.add_node("searcher", searcher_node)
-    builder.add_node("writer", writer_node)
+    builder.add_node("parallel_research", parallel_search_write_node)
     builder.add_node("final_writer", final_writer_node)
-    
+
     builder.set_entry_point("followup_detector")
-    builder.add_edge(
-    "followup_detector", "planner" 
-)
-    builder.add_edge("planner", "router")
-
-    builder.add_conditional_edges(
-        "router",
-        lambda state: "final_writer" if not state["sub_questions"] else "searcher"
-    )
-
-    builder.add_edge("searcher", "writer")
-    builder.add_edge("writer", "router")
+    builder.add_edge("followup_detector", "planner")
+    builder.add_edge("planner", "parallel_research")
+    builder.add_edge("parallel_research", "final_writer")
     builder.add_edge("final_writer", END)
 
     return builder.compile()

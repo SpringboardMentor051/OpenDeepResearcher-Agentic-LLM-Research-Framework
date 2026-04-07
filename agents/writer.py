@@ -1,165 +1,158 @@
 from openai import OpenAI
 from dotenv import load_dotenv
-load_dotenv()
 from os import getenv
+
+load_dotenv()
 
 
 class Writer:
     def __init__(self, model_name: str, base_url: str):
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key=getenv("API_KEY")
-        )
+        self.client = OpenAI(base_url=base_url, api_key=getenv("API_KEY"))
         self.model = model_name
 
-    def summarize(self, sub_question: str, search_content: str, history: list, is_followup: bool = False, final: bool = False) -> str:
-        recent_history = history[-6:]
+    def summarize(
+        self,
+        sub_question: str,
+        search_content: str,
+        history: list,
+        is_followup: bool = False,
+        final: bool = False
+    ) -> str:
+        # Build a focused history summary — only extract relevant Q&A pairs
+        history_summary = self._build_history_summary(history)
 
-        history_text = "\n".join([
-            f"{msg['role']}: {msg['content']}"
-            for msg in recent_history
-        ])
-
-        # ---------------- FINAL OUTPUT ----------------
         if final and not is_followup:
-             prompt = f"""
+            prompt = self._final_prompt(sub_question, search_content, history_summary)
+        elif final and is_followup:
+            prompt = self._followup_final_prompt(sub_question, search_content, history_summary)
+        else:
+            prompt = self._partial_prompt(sub_question, search_content, history_summary)
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a professional research writer. Write structured, paragraph-based reports."},
+                    {"role": "user", "content": prompt}
+                ],
+                timeout=60
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"[Writer error: {e}]"
+
+    def _build_history_summary(self, history: list) -> str:
+        """Extract last 3 Q&A turns with truncated content."""
+        recent = history[-6:]
+        parts = []
+        for msg in recent:
+            role = msg["role"]
+            content = msg["content"][:400]
+            parts.append(f"{role.upper()}: {content}")
+        return "\n".join(parts) if parts else "No prior conversation."
+
+    def _final_prompt(self, query, content, history_summary):
+        return f"""
 You are an advanced research writer.
 
-Conversation Context:
-{history_text}
+CONVERSATION CONTEXT:
+{history_summary}
 
-Main Query:
-{sub_question}
+MAIN QUERY:
+{query}
 
-Collected Research:
-{search_content}
+COLLECTED RESEARCH:
+{content}
 
-Generate a structured research report in a PROFESSIONAL, PARAGRAPH-BASED format.
-
-IMPORTANT WRITING STYLE:
-- Write mostly in well-formed paragraphs with its headings of minimum 2 lines
-- Avoid excessive bullet points
-- Use smooth transitions between ideas
-- Maintain academic tone
+Write a comprehensive, professional research report answering the query.
 
 FORMAT:
-
-# Title
+# [Descriptive Title]
 
 ## Introduction
-Write a clear paragraph introducing the topic and its importance.
+Introduce the topic clearly in 2-3 sentences.
 
 ## Key Insights
-Present insights primarily as paragraphs with its headings of minimum 2 lines(with their headings if present). Use bullet points ONLY if absolutely necessary.
+Present main insights as paragraphs with subheadings. Minimize bullet points.
 
 ## Detailed Analysis
-Write detailed paragraphs explaining patterns, comparisons, and deeper insights(with its headings of minimum 2 lines if present).
+Deep-dive into patterns, comparisons, and implications.
 
-## Challenges
-Explain challenges in paragraph form with its headings of minimum 2 lines if present.
-
-## Limitations
-Discuss limitations in paragraph form with its headings of minimum 2 lines if present.
+## Challenges & Limitations
+Explain challenges and known limitations.
 
 ## Recommendations
-Provide recommendations in paragraph form or bullets optional but minimal.
+Provide actionable recommendations.
 
 ## Conclusion
-Summarize the discussion in a strong concluding paragraph.
+Strong concluding paragraph summarizing findings.
+
+## Sources
+List all sources with title and URL.
+
+RULES:
+- Paragraphs over bullets
+- No repetition
+- Professional, academic tone
+- Do NOT repeat information already in conversation history
+"""
+
+    def _followup_final_prompt(self, query, content, history_summary):
+        return f"""
+You are an advanced research writer handling a FOLLOW-UP question.
+
+WHAT WAS ALREADY DISCUSSED:
+{history_summary}
+
+NEW FOLLOW-UP QUERY:
+{query}
+
+RESEARCH FOR THIS NEW ASPECT:
+{content}
+
+CRITICAL: This is a follow-up. The user already knows the basics from the prior conversation.
+- DO NOT repeat the introduction or basics
+- Focus EXCLUSIVELY on the new aspect the user is asking about
+- Directly address what is NEW or DIFFERENT from prior discussion
+- Be specific and concrete
+
+FORMAT:
+# [Title Reflecting the Specific Follow-Up]
+
+## What's New / Specific to This Question
+Directly answer the follow-up query. State clearly what differentiates this from the prior discussion.
+
+## Focused Analysis
+Deep-dive into the specific aspect asked about.
+
+## Key Takeaways
+Summarize in a short paragraph what the user should take away from this new information.
 
 ## Sources
 List sources with title and URL.
 
 RULES:
-- Do NOT overuse bullet points
-- Prefer paragraphs over lists
-- Ensure smooth readability
-- No repetition
+- No rehashing of prior conversation
+- No generic introductions
+- Stay tightly focused on the NEW question
 """
 
-
-        elif final and is_followup:
-            prompt = f"""
-You are an advanced research writer.
-
-This is a FOLLOW-UP question.
-
-Conversation Context:
-{history_text}
-
-Query:
-{sub_question}
-
-Research:
-{search_content}
-
-INSTRUCTIONS:
-- Do NOT repeat full introduction
-- Focus only on the new aspect
-- Build on previous discussion
-
-WRITING STYLE:
-- Use paragraph-based with their headings explanation
-- Avoid bullet-heavy responses
-- Keep it concise but fluid
-
-FORMAT:
-
-# Title
-
-## Key Points
-Explain in paragraph form with its subheadings(bullets only if necessary).
-
-## Focused Analysis
-Write a clear paragraph analyzing the topic.
-
-## Conclusion
-Summarize in a short paragraph.
-
-## Sources
-Must include include titles and URLs .
-
-RULES:
-- Paragraphs > bullets
-- No redundancy
-"""
-
-
-        # ---------------- PARTIAL ----------------
-        else:
-            prompt = f"""
+    def _partial_prompt(self, question, content, history_summary):
+        return f"""
 You are a professional research analyst.
 
-Conversation Context:
-{history_text}
+CONTEXT:
+{history_summary}
 
-Query:
-{sub_question}
+QUESTION:
+{question}
 
-Research Findings:
-{search_content}
+RESEARCH FINDINGS:
+{content}
 
-Task:
-- Generate a clear and structured answer
-
-WRITING STYLE:
-- Use paragraph-based explanation with its subheadings
-- Avoid bullet-heavy output
-- Ensure smooth flow
-
-RULES:
-- Only answer the query
-- No repetition
-- Include sources (title + URL)
+Write a clear, focused paragraph-based answer to the question.
+- Stay strictly on-topic
+- Use the research content provided
+- No bullet-heavy output
+- Include sources (title + URL) at the end
 """
-
-
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You write structured research summaries."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-
-        return response.choices[0].message.content
