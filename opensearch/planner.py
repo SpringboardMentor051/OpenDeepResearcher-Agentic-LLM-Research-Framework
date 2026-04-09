@@ -23,9 +23,20 @@ Return only the questions.
         temperature=0.6
     )
 
-    questions = response.choices[0].message.content.split("\n")
-
+    questions = [
+    q.strip() for q in response.choices[0].message.content.split("\n") if q.strip()
+]
     return questions
+
+
+
+
+
+
+
+
+
+
 
 
 
