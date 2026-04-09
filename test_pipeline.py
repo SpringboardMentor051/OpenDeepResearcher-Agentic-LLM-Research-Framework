@@ -17,14 +17,16 @@ research_data = ""
 print("\nSearching web using Tavily...\n")
 
 for q in questions:
-    research_data += search(q)
+    data = search(q)
+    if data:   
+        research_data += data
 
-# Writer step
-report = write_report(topic, research_data[:3000])
+history = []   
+
+report = write_report(topic, research_data[:3000], history)
 
 print("\nFINAL RESEARCH REPORT\n")
 print(report)
-
 
 
 
