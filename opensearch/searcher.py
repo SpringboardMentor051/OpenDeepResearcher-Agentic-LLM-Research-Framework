@@ -4,25 +4,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 tavily = TavilyClient(api_key=os.getenv("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"))
 
 def search(query):
 
     print("\nSearching:", query)
 
-    results = tavily.search(
-        query=query,
-        search_depth="advanced",
-        max_results=3
-    )
+    try:
+        results = tavily.search(
+            query=query,
+            search_depth="advanced",
+            max_results=3
+        )
+    except Exception as e:
+        print("Tavily search failed:", e)
+        return ""
 
     collected_text = ""
 
-    for i, r in enumerate(results["results"], 1):
+    for i, r in enumerate(results.get("results", []), 1):
 
-        title = r["title"]
-        url = r["url"]
-        content = r["content"]
+        title = r.get("title", "")
+        url = r.get("url", "")
+        content = r.get("content", "")
+
+        # Skip weak or irrelevant results
+        if len(content) < 50:
+            continue
 
         print(f"\nSource {i}")
         print("Title:", title)
