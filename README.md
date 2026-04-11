@@ -145,4 +145,4 @@ Built by Mahesh Reddy, as part of Springboard virtual internship 6.0, 2026.
 
  📄 License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/SpringboardMentor051/OpenDeepResearcher-Agentic-LLM-Research-Framework/blob/Mahesh-Reddy/LICENSE) for details.
