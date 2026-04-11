@@ -74,7 +74,6 @@ Converts the markdown report to a styled PDF using ReportLab — handles heading
  🛠️ Tech Stack
 
 | Component | Technology |
-___________________________
 | Language | Python 3.10+ |
 | Agent Pipeline | LangGraph |
 | LLM Interface | OpenAI-compatible API (LM Studio / Ollama / any endpoint) |
@@ -146,4 +145,4 @@ Built by Mahesh Reddy, as part of Springboard virtual internship 6.0, 2026.
 
  📄 License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/SpringboardMentor051/OpenDeepResearcher-Agentic-LLM-Research-Framework/blob/Mahesh-Reddy/LICENSE) for details.
