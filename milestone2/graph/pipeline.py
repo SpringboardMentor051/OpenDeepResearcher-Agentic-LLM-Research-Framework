@@ -67,10 +67,17 @@ def full_pipeline(query):
 
     if not research_data:
         print("Research pipeline failed")
-        return None
+        return {
+            "report": "",
+            "research": []
+        }
 
     print("\n--- Sending Data to Writer Agent ---")
 
     report = writer_agent(research_data)
 
-    return report
+    # 🔥 IMPORTANT CHANGE
+    return {
+        "report": report,
+        "research": research_data["research"]   # KEEP SOURCES
+    }

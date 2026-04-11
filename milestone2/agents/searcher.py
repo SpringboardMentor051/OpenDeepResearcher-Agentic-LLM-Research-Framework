@@ -11,7 +11,7 @@ def search_agent(question):
     response = tavily.search(
         query=question,
         search_depth="advanced",
-        max_results=3
+        max_results=2   # 🔥 keep small for speed
     )
 
     results = []
@@ -20,7 +20,7 @@ def search_agent(question):
         results.append({
             "title": r["title"],
             "url": r["url"],
-            "content": r["content"][:300]   # LIMIT CONTENT SIZE
+            "content": r["content"][:150]
         })
 
     return results
