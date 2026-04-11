@@ -96,7 +96,7 @@ Converts the markdown report to a styled PDF using ReportLab — handles heading
  Installation
 
 ```bash
-git clone https://github.com/your-username/OpenDeepResearcher.git
+git clone --branch Mahesh-Reddy --single-branch https://github.com/SpringboardMentor051/OpenDeepResearcher-Agentic-LLM-Research-Framework
 cd OpenDeepResearcher
 
 python -m venv venv
