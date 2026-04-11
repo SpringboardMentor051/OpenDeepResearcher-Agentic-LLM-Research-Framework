@@ -74,7 +74,6 @@ Converts the markdown report to a styled PDF using ReportLab — handles heading
  🛠️ Tech Stack
 
 | Component | Technology |
-___________________________
 | Language | Python 3.10+ |
 | Agent Pipeline | LangGraph |
 | LLM Interface | OpenAI-compatible API (LM Studio / Ollama / any endpoint) |
