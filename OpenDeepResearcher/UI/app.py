@@ -1,9 +1,9 @@
 import sys
 import os
-sys.path.append(os.path.abspath(".."))
+sys.path.append(os.path.abspath("../"))
 
 import streamlit as st
-from OpenDeepResearcher.main import run_research
+from main import run_research
 from utils.pdf_export import markdown_to_pdf_bytes
 
 # ──────────────────────────────────────────

@@ -1,8 +1,11 @@
+import sys
+import os
+sys.path.append(os.path.abspath("../"))
 from typing import TypedDict, List, Optional
 from openai import OpenAI
-from OpenDeepResearcher.agents.planner import Planner
-from OpenDeepResearcher.agents.searcher import Searcher
-from OpenDeepResearcher.agents.writer import Writer
+from agents.planner import Planner
+from agents.searcher import Searcher
+from agents.writer import Writer
 from langgraph.graph import StateGraph, END
 import os
 import concurrent.futures

@@ -1,4 +1,4 @@
-from OpenDeepResearcher.graph.pipeline import build_graph
+from graph.pipeline import build_graph
 
 graph = build_graph()
 
