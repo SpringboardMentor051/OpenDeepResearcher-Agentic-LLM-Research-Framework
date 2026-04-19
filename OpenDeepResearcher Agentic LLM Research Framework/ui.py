@@ -156,4 +156,4 @@ if topic and topic.strip():
     # -----------------------------
     # RESET INPUT AFTER SEARCH
     # -----------------------------
-    st.session_state.topic_input = ""
+    #st.session_state.topic_input = ""
